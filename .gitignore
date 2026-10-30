@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Trained models
+# Model artifacts are large and are produced by training/train.py, so the
+# output directories are ignored. Note this is deliberately scoped to those
+# directories: a blanket *.json / *.parquet / *.npy rule here would also
+# silently exclude a small demo model that is meant to be committed.
+/models/
+/models_*/
+
+# Training datasets (large source CSVs, e.g. the TMDB dump)
+*.csv
+
+# Pickled artifacts -- never commit these; unpickling is code execution.
+*.pkl

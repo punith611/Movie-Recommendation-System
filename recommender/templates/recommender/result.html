@@ -1,0 +1,583 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Movies similar to {{ input_movie_name }}: ratings, genres and where to find them.">
+    <meta name="theme-color" content="#0f172a">
+    <title>Movies like {{ input_movie_name }} | Movie Recommendation System</title>
+
+    <link rel="shortcut icon" href="{% static 'logo.ico' %}">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Poster host, warmed up early so images start arriving sooner. -->
+    <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+
+    <script>document.documentElement.classList.add('js');</script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary-color: #8b5cf6;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --success: #10b981;
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--background) 0%, #1a1f3a 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .background-animation {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            opacity: 0.05;
+        }
+
+        .background-animation::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--primary-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 20s linear infinite;
+        }
+
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(30, 41, 59, 0.92);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.25rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .logo-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .logo-link:hover { color: var(--primary-color); }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.4rem;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .back-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        a:focus-visible, button:focus-visible {
+            outline: 3px solid var(--secondary-color);
+            outline-offset: 2px;
+        }
+
+        /* Source movie hero */
+        .results-header {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 1rem 1rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .source-card {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            background: var(--surface);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .source-poster {
+            width: 92px;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+            background: var(--surface-light);
+        }
+
+        .source-text { flex: 1; min-width: 220px; }
+
+        .source-eyebrow {
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .results-title {
+            font-size: clamp(1.4rem, 3.5vw, 2.1rem);
+            font-weight: 700;
+            margin: 0.2rem 0 0.4rem;
+        }
+
+        .searched-movie { color: var(--primary-color); }
+
+        .results-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem 4rem;
+        }
+
+        .results-count {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1.25rem;
+        }
+
+        /* Movie grid */
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .movie-card {
+            display: flex;
+            flex-direction: column;
+            background: var(--surface);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--primary-color);
+            box-shadow: 0 15px 40px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Poster */
+        .poster-wrap {
+            position: relative;
+            aspect-ratio: 2 / 3;
+            background: linear-gradient(135deg, var(--surface-light), var(--surface));
+            overflow: hidden;
+        }
+
+        /* Without artwork the tall 2:3 frame is just a big empty box, so the
+           header collapses to a strip that still carries rank and rating. */
+        .poster-wrap.no-poster {
+            aspect-ratio: auto;
+            height: 96px;
+        }
+
+        .poster-wrap.no-poster .poster-fallback { font-size: 1.75rem; }
+
+        .poster {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.4s ease;
+            /* The fallback below is absolutely positioned, and positioned
+               elements paint above static ones whatever the DOM order. Without
+               its own stacking position the artwork renders *under* the
+               placeholder icon. */
+            position: relative;
+            z-index: 1;
+        }
+
+        .movie-card:hover .poster { transform: scale(1.04); }
+
+        .poster-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .movie-rank {
+            position: absolute;
+            z-index: 2;
+            top: 0.75rem;
+            left: 0.75rem;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 0.5rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .match-badge {
+            position: absolute;
+            z-index: 2;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            background: rgba(99, 102, 241, 0.9);
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+        }
+
+        .rating-badge {
+            position: absolute;
+            z-index: 2;
+            bottom: 0.75rem;
+            left: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            background: rgba(15, 23, 42, 0.85);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+        }
+
+        .movie-body {
+            padding: 1.1rem 1.25rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 0.6rem;
+        }
+
+        .movie-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .movie-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .genre-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .genre-tag {
+            font-size: 0.72rem;
+            padding: 0.2rem 0.55rem;
+            background: var(--surface-light);
+            border-radius: 50px;
+            color: var(--text-secondary);
+        }
+
+        .movie-overview {
+            font-size: 0.83rem;
+            color: var(--text-secondary);
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .movie-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: auto;
+            padding-top: 0.5rem;
+        }
+
+        .movie-link {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            border: 1px solid;
+        }
+
+        .link-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .link-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        .link-secondary {
+            background: transparent;
+            border-color: var(--surface-light);
+            color: var(--text-secondary);
+        }
+
+        .link-secondary:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .attribution {
+            margin-top: 0.5rem;
+            font-size: 0.78rem;
+            opacity: 0.75;
+        }
+
+        .attribution a { color: inherit; }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards are only pre-hidden when JS is around to reveal them. */
+        .js .movie-card.reveal {
+            opacity: 0;
+            transform: translateY(24px);
+        }
+
+        .js .movie-card.reveal.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .no-results-icon { font-size: 4rem; margin-bottom: 1rem; }
+
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .header-content { justify-content: center; }
+            .results-header { padding: 2rem 1rem 0.5rem; }
+            .movies-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+            .movie-body { padding: 0.85rem; }
+            .movie-overview { display: none; }
+            .movie-actions { flex-direction: column; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .js .movie-card.reveal { opacity: 1; transform: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-animation" aria-hidden="true"></div>
+
+    <header class="header">
+        <div class="header-content">
+            <a href="{% url 'recommender:main' %}" class="logo-link">
+                <span>🎬 Movie Recommendation System</span>
+            </a>
+            <a href="{% url 'recommender:main' %}" class="back-button">← New search</a>
+        </div>
+    </header>
+
+    <div class="results-header">
+        <div class="source-card">
+            {% if source_movie.poster_url %}
+            <img src="{{ source_movie.poster_url }}" alt="" class="source-poster" loading="lazy" decoding="async"
+                 onerror="this.remove()">
+            {% endif %}
+            <div class="source-text">
+                <p class="source-eyebrow">Because you searched</p>
+                <h1 class="results-title">
+                    Movies like <span class="searched-movie">{{ input_movie_name }}</span>{% if source_movie.year %} <span class="results-subtitle">({{ source_movie.year }})</span>{% endif %}
+                </h1>
+                {% if source_movie %}
+                <p class="results-subtitle">
+                    ⭐ {{ source_movie.rating }} &nbsp;·&nbsp; 🎭 {{ source_movie.genres }} &nbsp;·&nbsp; 🏢 {{ source_movie.production }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <main class="container">
+        {% if recommended_movies %}
+        <p class="results-count">Showing {{ total_recommendations }} similar {{ total_recommendations|pluralize:"film,films" }}</p>
+        <div class="movies-grid">
+            {% for movie in recommended_movies %}
+            <article class="movie-card reveal">
+                <div class="poster-wrap{% if not movie.poster_url %} no-poster{% endif %}">
+                    <div class="poster-fallback" aria-hidden="true">🎬</div>
+                    {% if movie.poster_url %}
+                    <img src="{{ movie.poster_url }}"
+                         alt="Poster for {{ movie.title }}"
+                         class="poster"
+                         loading="lazy"
+                         decoding="async"
+                         onerror="this.closest('.poster-wrap').classList.add('no-poster'); this.remove();">
+                    {% endif %}
+                    <div class="movie-rank" title="Rank {{ forloop.counter }}">{{ forloop.counter }}</div>
+                    {% if movie.similarity_percent %}
+                    <div class="match-badge" title="Similarity score">{{ movie.similarity_percent }}% match</div>
+                    {% endif %}
+                    {% if movie.rating_value %}
+                    <div class="rating-badge">⭐ {{ movie.rating_value }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="movie-body">
+                    <h2 class="movie-title">{{ movie.title }}</h2>
+                    <p class="movie-meta">
+                        {% if movie.year %}{{ movie.year }} · {% endif %}{{ movie.votes }} votes
+                    </p>
+
+                    {% if movie.genre_list %}
+                    <div class="genre-tags">
+                        {% for genre in movie.genre_list %}
+                        <span class="genre-tag">{{ genre }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if movie.overview %}
+                    <p class="movie-overview">{{ movie.overview }}</p>
+                    {% endif %}
+
+                    <div class="movie-actions">
+                        <a href="{{ movie.google_link }}" target="_blank" rel="noopener noreferrer"
+                           class="movie-link link-primary">🔍 Google</a>
+                        {% if movie.imdb_link %}
+                        <a href="{{ movie.imdb_link }}" target="_blank" rel="noopener noreferrer"
+                           class="movie-link link-secondary">⭐ IMDb</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-results">
+            <div class="no-results-icon" aria-hidden="true">😕</div>
+            <h2>No recommendations found</h2>
+            <p>We couldn't find anything similar to this film. Try another title.</p>
+            <p style="margin-top:1.5rem"><a href="{% url 'recommender:main' %}" class="back-button">← Try another search</a></p>
+        </div>
+        {% endif %}
+    </main>
+
+    <footer class="footer">
+        <p>Made with ❤️ for movie lovers | © {% now "Y" %} Movie Recommendation System</p>
+        <p class="attribution">Movie data and images from <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">TMDB</a>. This product uses data from TMDB but is not endorsed or certified by TMDB.</p>
+    </footer>
+
+    <script>
+    (function () {
+        'use strict';
+        var cards = document.querySelectorAll('.movie-card.reveal');
+
+        if (!('IntersectionObserver' in window)) {
+            Array.prototype.forEach.call(cards, function (card) {
+                card.classList.add('animate-in');
+            });
+            return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { rootMargin: '80px', threshold: 0.05 });
+
+        Array.prototype.forEach.call(cards, function (card) { observer.observe(card); });
+    })();
+    </script>
+</body>
+</html>

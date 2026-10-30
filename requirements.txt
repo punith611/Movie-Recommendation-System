@@ -1,0 +1,15 @@
+# Runtime dependencies for serving the web app.
+# Training needs a few extra packages -- see requirements-train.txt.
+
+# Core framework
+Django==6.0.4
+gunicorn==23.0.0
+
+# Static files
+whitenoise[brotli]==6.11.0
+
+# Model loading / inference
+pandas>=2.3.3
+pyarrow>=22.0.0
+numpy>=2.1
+scipy>=1.14
